@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>P-skive Helper</title>
+<meta name="theme-color" content="#1d4f9a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="P-skive">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+/* Layout: single phone-first column — live clock strip, the disc itself as hero, then limit chips, "move by" result and rules. */
+:root{
+  --sign:#1d4f9a;        /* Danish P-sign blue */
+  --sign-ink:#ffffff;
+  --bg:#eef2f8;
+  --surface:#ffffff;
+  --fg:#14213a;
+  --muted:#5b6782;
+  --line:#d3dbe9;
+  --hand:#d6262f;
+  --ok:#1f7a4a;
+  --warn:#b4560b;
+  --display:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,"Roboto Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --sign:#2f63b5;--sign-ink:#ffffff;--bg:#0d1320;--surface:#162036;--fg:#e8edf7;--muted:#9aa7c2;--line:#2a3756;--hand:#ff5a5f;--ok:#4cc08a;--warn:#f0a050;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sign:#2f63b5;--sign-ink:#ffffff;--bg:#0d1320;--surface:#162036;--fg:#e8edf7;--muted:#9aa7c2;--line:#2a3756;--hand:#ff5a5f;--ok:#4cc08a;--warn:#f0a050;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:16px;line-height:1.45}
+.wrap{max-width:460px;margin:0 auto;padding-inline:16px;padding-block:16px 40px;display:grid;gap:18px}
+header{display:flex;align-items:center;gap:12px}
+.psign{width:40px;height:40px;border-radius:6px;background:var(--sign);color:var(--sign-ink);display:grid;place-items:center;font-weight:800;font-size:26px;line-height:1;padding-top:3px;flex:none}
+h1{margin:0;font-size:1.25rem;font-weight:800;letter-spacing:.01em}
+header p{margin:0;color:var(--muted);font-size:.85rem}
+.now{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;border-block:1px solid var(--line);padding-block:10px}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.big{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700}
+#clock{font-size:1.5rem}
+.arrive{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.arrive input[type=time]{font:inherit;font-family:var(--mono);padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.disc-card{background:var(--sign);color:var(--sign-ink);border-radius:22px;padding:18px 16px 16px;display:grid;gap:10px;justify-items:center;text-align:center}
+.disc-card .label{color:rgba(255,255,255,.75)}
+#setTime{font-size:3rem;line-height:1}
+.disc{width:100%;max-width:280px;aspect-ratio:1}
+#hint{margin:0;font-size:.95rem;max-width:30ch;text-wrap:balance}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-weight:600;font-size:.9rem;padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--hand);outline-offset:2px}
+.result{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+#moveBy{font-size:2rem}
+.btn{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:0;background:var(--sign);color:var(--sign-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line)}
+.saved{border-left:6px solid var(--ok)}
+.saved.late{border-left-color:var(--hand)}
+.saved.soon{border-left-color:var(--warn)}
+#left{font-weight:700}
+.rules{font-size:.9rem;color:var(--muted)}
+.rules h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;margin:0 0 6px;color:var(--fg)}
+.rules ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.rules b{color:var(--fg)}
+@media (prefers-reduced-motion:no-preference){#hand{transition:transform .5s cubic-bezier(.3,1.4,.5,1)}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="psign" aria-hidden="true">P</div>
+    <div><h1>P-skive Helper</h1><p>Where to point the arrow on your Danish parking disc</p></div>
+  </header>
+
+  <section class="now" aria-label="Current time">
+    <div><div class="label">Time now</div><div id="clock" class="big">--:--:--</div></div>
+    <div class="arrive">
+      <label><input type="checkbox" id="earlier"> I parked earlier at</label>
+      <input type="time" id="arrivalInput" step="60" disabled>
+    </div>
+  </section>
+
+  <section class="disc-card" aria-live="polite">
+    <div class="label">Set your disc to</div>
+    <div id="setTime" class="big">--:--</div>
+    <svg class="disc" viewBox="0 0 240 240" role="img" aria-label="Parking disc dial">
+      <circle cx="120" cy="120" r="114" fill="#ffffff"/>
+      <circle cx="120" cy="120" r="114" fill="none" stroke="#14213a" stroke-width="3"/>
+      <g id="ticks"></g>
+      <g id="nums" font-family="-apple-system, system-ui, sans-serif" font-weight="800" font-size="20" fill="#14213a" text-anchor="middle"></g>
+      <g id="hand" transform="rotate(0 120 120)">
+        <path d="M120 22 L129 46 L123 46 L123 132 L117 132 L117 46 L111 46 Z" fill="#d6262f"/>
+      </g>
+      <circle cx="120" cy="120" r="9" fill="#14213a"/>
+      <circle cx="120" cy="120" r="3" fill="#ffffff"/>
+    </svg>
+    <p id="hint"></p>
+  </section>
+
+  <section style="display:grid;gap:10px">
+    <div class="label">Time limit on the sign</div>
+    <div class="chips" id="chips" role="group" aria-label="Time limit">
+      <button class="chip" data-min="30">½ hour</button>
+      <button class="chip" data-min="60">1 hour</button>
+      <button class="chip" data-min="120">2 hours</button>
+      <button class="chip" data-min="180">3 hours</button>
+      <button class="chip" data-min="240">4 hours</button>
+    </div>
+    <div class="result">
+      <div><div class="label">Move the car by</div><div id="moveBy" class="big">--:--</div></div>
+      <button class="btn" id="save">I've set it</button>
+    </div>
+  </section>
+
+  <section class="result saved" id="savedCard" hidden>
+    <div>
+      <div class="label">Parked · disc set to <span id="savedSet"></span></div>
+      <div><span id="savedBy" class="big" style="font-size:1.4rem"></span> · <span id="left"></span></div>
+    </div>
+    <button class="btn ghost" id="clear">Clear</button>
+  </section>
+
+  <section class="rules">
+    <h2>Rules in short</h2>
+    <ul>
+      <li>Set the arrow to the <b>end of the quarter-hour</b> you parked in: 13:07 → 13:15, 13:15 → 13:30. Rounding down gets a fine.</li>
+      <li>Don't touch it again until you drive off. Turning it forward is not an extension.</li>
+      <li>Only <b>one</b> disc visible, inside the windscreen, <b>bottom right</b>, readable from outside.</li>
+      <li>Parked outside the hours on the sign? You may instead set it to when the restriction starts (e.g. 08:00 for a 2-hour zone from 8–16, giving you until 10:00).</li>
+      <li>Hours in parentheses on a sign, like (9–14), usually apply on Saturdays.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const pad=n=>String(n).padStart(2,'0');
+  const hm=d=>pad(d.getHours())+':'+pad(d.getMinutes());
+  const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+
+  // Draw dial: 48 quarter ticks, hour numbers 1–12
+  const ticks=$('ticks'), nums=$('nums'), NS='http://www.w3.org/2000/svg';
+  for(let i=0;i<48;i++){
+    const a=i*7.5*Math.PI/180, hour=i%4===0, half=i%2===0;
+    const r1=hour?92:half?100:104, r2=110;
+    const l=document.createElementNS(NS,'line');
+    l.setAttribute('x1',120+r1*Math.sin(a));l.setAttribute('y1',120-r1*Math.cos(a));
+    l.setAttribute('x2',120+r2*Math.sin(a));l.setAttribute('y2',120-r2*Math.cos(a));
+    l.setAttribute('stroke','#14213a');l.setAttribute('stroke-width',hour?3.5:half?2:1.5);
+    ticks.appendChild(l);
+  }
+  for(let h=1;h<=12;h++){
+    const a=h*30*Math.PI/180, r=74;
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',120+r*Math.sin(a));t.setAttribute('y',120-r*Math.cos(a)+7);
+    t.textContent=h;nums.appendChild(t);
+  }
+
+  let limit=parseInt(store.get('pskive-limit')||'120',10);
+  const chips=[...document.querySelectorAll('.chip')];
+  function paintChips(){chips.forEach(c=>c.setAttribute('aria-pressed',String(+c.dataset.min===limit)))}
+  chips.forEach(c=>c.addEventListener('click',()=>{limit=+c.dataset.min;store.set('pskive-limit',limit);paintChips();render()}));
+  paintChips();
+
+  const earlier=$('earlier'), arrIn=$('arrivalInput');
+  earlier.addEventListener('change',()=>{arrIn.disabled=!earlier.checked;if(earlier.checked&&!arrIn.value)arrIn.value=hm(new Date());render()});
+  arrIn.addEventListener('input',render);
+
+  function arrival(now){
+    if(!earlier.checked||!arrIn.value) return new Date(now);
+    const [h,m]=arrIn.value.split(':').map(Number);
+    const d=new Date(now);d.setHours(h,m,0,0);
+    if(d>now) d.setDate(d.getDate()-1); // a later time means yesterday
+    return d;
+  }
+  // End of the quarter-hour in which parking began
+  function discTime(a){const d=new Date(a);d.setSeconds(0,0);d.setMinutes(Math.floor(d.getMinutes()/15)*15+15);return d}
+
+  function hint(d){
+    const h=d.getHours()%12||12, next=h%12+1, m=d.getMinutes();
+    if(m===0) return 'Point the red arrow straight at the '+h+'.';
+    if(m===15) return 'Arrow on the first mark after '+h+', a quarter of the way to '+next+'.';
+    if(m===30) return 'Arrow on the long mark halfway between '+h+' and '+next+'.';
+    return 'Arrow on the last mark before '+next+', three-quarters of the way from '+h+'.';
+  }
+  function dur(ms){const t=Math.round(ms/60000),h=Math.floor(Math.abs(t)/60),m=Math.abs(t)%60;return (h?h+' h ':'')+m+' min'}
+
+  function render(){
+    const now=new Date();
+    $('clock').textContent=hm(now)+':'+pad(now.getSeconds());
+    const set=discTime(arrival(now));
+    $('setTime').textContent=hm(set);
+    const angle=((set.getHours()%12)+set.getMinutes()/60)*30;
+    $('hand').setAttribute('transform','rotate('+angle+' 120 120)');
+    $('hint').textContent=hint(set);
+    $('moveBy').textContent=hm(new Date(set.getTime()+limit*60000));
+
+    const saved=store.get('pskive-saved');
+    const card=$('savedCard');
+    if(saved){
+      const s=JSON.parse(saved), by=new Date(s.set+s.limit*60000), left=by-now;
+      card.hidden=false;
+      $('savedSet').textContent=hm(new Date(s.set));
+      $('savedBy').textContent='Move by '+hm(by);
+      $('left').textContent=left>0?dur(left)+' left':dur(left)+' over';
+      card.classList.toggle('late',left<=0);
+      card.classList.toggle('soon',left>0&&left<15*60000);
+    } else card.hidden=true;
+  }
+  $('save').addEventListener('click',()=>{
+    const set=discTime(arrival(new Date()));
+    store.set('pskive-saved',JSON.stringify({set:set.getTime(),limit}));render();
+  });
+  $('clear').addEventListener('click',()=>{store.del('pskive-saved');render()});
+
+  render();setInterval(render,1000);
+})();
+</script>
+<script>
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
